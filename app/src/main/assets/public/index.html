@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件中转区</title>
+    <!-- 引入 ElementUI 样式 -->
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+    <style>
+        a {
+            text-decoration: none;
+            color: inherit;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            user-select: none;
+            -webkit-appearance: none;
+            -webkit-text-size-adjust: none;
+            -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+            -webkit-touch-callout: none;
+            border-bottom: none;
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <el-table :data="tableData" stripe style="width: 100%">
+            <el-table-column prop="name" label="文件名">
+            </el-table-column>
+            <el-table-column prop="size"" label=" 文件大小">
+            </el-table-column>
+            <el-table-column prop="path" label="路径">
+            </el-table-column>
+            <el-table-column prop="lastModifiedTime" label="更新时间">
+            </el-table-column>
+            <el-table-column label="操作">
+                <template slot-scope="{row,$index}">
+                    <el-button size="mini" type="primary">
+                        <a :href="'/file/'+row.name">下载</a>
+                    </el-button>
+                    <el-button size="mini" type="danger" @click="handleDelete(row.name)">
+                        删除
+                    </el-button>
+                </template>
+            </el-table-column>
+        </el-table>
+        <el-upload style="text-align:center;margin-top: 20px;" drag action="/upload" :show-file-list="false"
+            :on-success="uploadSuccess" :on-error="uploadError" multiple>
+            <i class="el-icon-upload"></i>
+            <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
+            <div class="el-upload__tip" slot="tip">支持任意格式文件上传</div>
+        </el-upload>
+
+        <!-- <el-row :gutter="20" style="margin-top: 20px;">
+            <el-col :span="18">
+                <el-table :data="tableData" stripe style="width: 100%">
+                    <el-table-column prop="name" label="文件名" width="180">
+                    </el-table-column>
+                    <el-table-column prop="size"" label=" 文件大小" width="180">
+                    </el-table-column>
+                    <el-table-column prop="path" label="路径">
+                    </el-table-column>
+                    <el-table-column prop="lastModifiedTime" label="更新时间">
+                    </el-table-column>
+                    <el-table-column label="操作">
+                        <template slot-scope="{row,$index}">
+                            <el-button size="mini" type="primary">                                
+                                <a :href="'/file/'+row.name">下载</a>
+                            </el-button>
+                            <el-button size="mini" type="danger" @click="handleDelete(row.name)">
+                                删除
+                            </el-button>
+                        </template>
+                    </el-table-column>
+                </el-table>
+            </el-col>
+            <el-col :span="6">
+                <el-upload style="text-align:center;" drag action="/upload" :on-success="uploadSuccess"
+                    :on-error="uploadError" multiple>
+                    <i class="el-icon-upload"></i>
+                    <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
+                    <div class="el-upload__tip" slot="tip">支持任意格式文件上传</div>
+                </el-upload>
+            </el-col>
+        </el-row> -->
+
+
+    </div>
+
+    <!-- 引入 Vue.js -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+    <!-- 引入 ElementUI 组件库 -->
+    <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+    <!-- 引入 Axios.js -->
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+</body>
+<script>
+    var app = new Vue({
+        el: '#app',
+        data: {
+            tableData: []
+        },
+        methods: {
+            fetchFileList: function () {
+                axios.get('/list').then(res => {
+                    let result = res.data
+                    console.log(result)
+                    this.tableData = result.data
+                })
+            },
+            uploadSuccess: function (response, file, fileList) {
+                this.$message({
+                    type: 'success',
+                    message: '上传成功',
+                    showClose: true,
+                })
+                this.fetchFileList();
+            },
+            uploadError: function (err, file, fileList) {
+                this.$message({
+                    type: 'error',
+                    message: '上传失败',
+                    showClose: true,
+                })
+                this.fetchFileList();
+            },
+            handleUpdate(row) {
+
+            },
+            handleDelete(fileName) {
+                this.$confirm('是否删除该文件, 是否继续?', '提示', {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                    type: 'warning'
+                }).then(() => {
+                    return axios.get('/delete/' + fileName)
+                }).then((response) => {
+                    this.$message({
+                        type: 'success',
+                        message: '删除成功!'
+                    })
+                    this.fetchFileList()
+                }).catch(() => {
+                    this.$message({
+                        type: 'info',
+                        message: '已取消删除'
+                    })
+                })
+            }
+        },
+        watch: {
+
+        },
+        filters: {
+
+        },
+        computed: {},
+        created() {
+            this.fetchFileList()
+        }
+    })
+</script>
+
+</html>
