@@ -13,7 +13,11 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.text.TextUtils;
+import android.util.Log;
 import android.view.KeyEvent;
+import android.view.View;
 import android.widget.ListView;
 import android.widget.SimpleAdapter;
 import android.widget.TextView;
@@ -24,6 +28,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.example.filetransfer.server.CustomAsyncHttpServer;
 import com.example.filetransfer.service.WebService;
@@ -52,63 +57,28 @@ import java.util.Map;
  */
 public class MainActivity extends AppCompatActivity {
     private static final int PERMISSIONS_REQUEST_EXTERNAL_STORAGE = 454;
-    private static final String NOTIFICATION_CHANNEL_ID = "notification_id";
 
     private long mExitTime;
     private TextView tvPath;
     private ListView listview;
     private File currentParent;
     private File[] currentFiles;
-    private NotificationManager mNotifyMgr;
+    private SwipeRefreshLayout srfl;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
         // 检查存储权限
         if (!checkStoragePermission()) {
             ActivityCompat.requestPermissions(this,
                     new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE},
                     PERMISSIONS_REQUEST_EXTERNAL_STORAGE);
         }
-
         // 初始化界面
         initView();
-
-        // 初始化通知
-        mNotifyMgr = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-        if (Build.VERSION.SDK_INT >= 26) {
-            NotificationChannel channel = new NotificationChannel(NOTIFICATION_CHANNEL_ID, "APP_NAME", NotificationManager.IMPORTANCE_HIGH);
-            channel.setSound(null, null);
-            if (mNotifyMgr != null) {
-                mNotifyMgr.createNotificationChannel(channel);
-            }
-        }
-
         // 启动Web服务
-        WebService.start(getBaseContext(), file -> {
-            runOnUiThread(() -> {
-                initData();
-                inflateListView(currentFiles);
-
-                if (file != null && file.exists()) {
-                    shareFile(file);
-                    Intent intentGet = new Intent(this, MainActivity.class);
-                    PendingIntent pendingIntentGet = PendingIntent.getActivity(this, 0, intentGet, 0);
-                    Notification notificationGet = new NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-                            .setAutoCancel(true)
-                            .setContentTitle("检测到文件上传")
-                            .setContentText(file.getName())
-                            .setWhen(System.currentTimeMillis())
-                            .setSmallIcon(R.drawable.icon)
-                            .setLargeIcon(BitmapFactory.decodeResource(getResources(), R.drawable.icon))
-                            .setContentIntent(pendingIntentGet)
-                            .build();
-                    mNotifyMgr.notify(1, notificationGet);
-                }
-            });
-        });
+        WebService.start(getBaseContext());
     }
 
     /**
@@ -117,6 +87,8 @@ public class MainActivity extends AppCompatActivity {
     private void initView() {
         tvPath = findViewById(R.id.tvPath);
         listview = findViewById(R.id.listview);
+        srfl = findViewById(R.id.srfl);
+        srfl.setColorSchemeResources(R.color.black);
         initData();
         inflateListView(currentFiles);
         listview.setOnItemClickListener((arg0, arg1, arg2, arg3) -> {
@@ -148,6 +120,12 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+
+        srfl.setOnRefreshListener(() -> new Handler().postDelayed(() -> {
+            currentFiles = currentParent.listFiles();
+            inflateListView(currentFiles);
+            srfl.setRefreshing(false);
+        }, 500));
     }
 
     /**
@@ -189,15 +167,18 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * 初始化ListView
+     *
+     * @param files
+     */
     private void inflateListView(File[] files) {
         final List<Map<String, Object>> list = new ArrayList<Map<String, Object>>();
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-
         Map<String, Object> root = new HashMap<String, Object>();
         root.put("icon", R.drawable.folder);
         root.put("rootName", "../");
         list.add(root);
-
         for (int i = 0; i < files.length; i++) {
             Map<String, Object> map = new HashMap<String, Object>();
             if (files[i].isDirectory()) {
@@ -218,7 +199,6 @@ public class MainActivity extends AppCompatActivity {
         } catch (IOException e) {
             e.printStackTrace();
         }
-
     }
 
     /**
@@ -273,5 +253,12 @@ public class MainActivity extends AppCompatActivity {
             return true;
         }
         return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        initData();
+        inflateListView(currentFiles);
     }
 }

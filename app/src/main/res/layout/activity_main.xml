@@ -14,19 +14,26 @@
         android:padding="8dp">
 
         <TextView
-            android:textSize="18sp"
             android:id="@+id/tvPath"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:lines="1"
-            android:textColor="@color/white" />
+            android:textColor="@color/white"
+            android:textSize="18sp" />
     </LinearLayout>
 
-    <ListView
-        android:id="@+id/listview"
+
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/srfl"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:padding="8dp"/>
+        android:layout_height="match_parent">
+
+        <ListView
+            android:id="@+id/listview"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="8dp" />
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
 </LinearLayout>
