@@ -57,11 +57,11 @@ public class WebService extends Service {
     public static final Integer PORT = 8080;
     public static final String FILE_PATH = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS).getAbsolutePath();
     public static final File mFile = new File(FILE_PATH, "upload");
-    private static final CustomAsyncHttpServer server = new CustomAsyncHttpServer();
     private static final String ACTION_START_WEB_SERVICE = "START_WEB_SERVICE";
     private static final String ACTION_STOP_WEB_SERVICE = "STOP_WEB_SERVICE";
     private static final String NOTIFICATION_CHANNEL_ID = "notification_id";
 
+    private CustomAsyncHttpServer server = new CustomAsyncHttpServer();
     private FileUploadHolder fileUploadHolder = new FileUploadHolder();
     private NotificationManager mNotifyMgr;
 
@@ -112,6 +112,9 @@ public class WebService extends Service {
         if (server != null) {
             server.stop();
         }
+        Intent intent = new Intent(this, WebService.class);
+        intent.setAction(ACTION_START_WEB_SERVICE);
+        startService(intent);
     }
 
     /**

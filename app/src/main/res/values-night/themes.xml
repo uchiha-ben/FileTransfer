@@ -3,4 +3,5 @@
     <style name="Theme.FileTransfer" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
         <item name="colorPrimary">@color/black</item>
     </style>
+
 </resources>
