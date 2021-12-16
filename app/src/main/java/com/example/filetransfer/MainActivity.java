@@ -1,27 +1,14 @@
 package com.example.filetransfer;
 
 import android.Manifest;
-import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
-import android.content.ComponentName;
-import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
-import android.os.PowerManager;
-import android.provider.Settings;
-import android.text.TextUtils;
-import android.util.Log;
 import android.view.KeyEvent;
-import android.view.View;
-import android.view.Window;
 import android.view.WindowManager;
 import android.widget.ListView;
 import android.widget.SimpleAdapter;
@@ -29,10 +16,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
-import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
@@ -42,6 +27,8 @@ import com.example.filetransfer.service.WebService;
 import com.example.filetransfer.utils.ClipBoardUtil;
 import com.example.filetransfer.utils.IpUtil;
 import com.example.filetransfer.utils.MyToast;
+import com.example.filetransfer.utils.OnlineDialog;
+import com.example.filetransfer.utils.Watermark;
 
 import java.io.File;
 import java.io.IOException;
@@ -49,7 +36,6 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -67,6 +53,7 @@ public class MainActivity extends AppCompatActivity {
 
     private long mExitTime;
     private TextView tvPath;
+    private TextView tvAddress;
     private ListView listview;
     private File currentParent;
     private File[] currentFiles;
@@ -77,6 +64,9 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+        // 检测版本更新
+        OnlineDialog.init(this, "http://zxm870973.gitee.io/update-center/file_transfer.json");
 
         // 检查存储权限
         if (!checkStoragePermission()) {
@@ -89,6 +79,7 @@ public class MainActivity extends AppCompatActivity {
 
         // 初始化界面
         initView();
+
         // 启动Web服务
         WebService.start(getBaseContext());
     }
@@ -98,11 +89,14 @@ public class MainActivity extends AppCompatActivity {
      */
     private void initView() {
         tvPath = findViewById(R.id.tvPath);
+        tvAddress = findViewById(R.id.tvAddress);
         listview = findViewById(R.id.listview);
         srfl = findViewById(R.id.srfl);
         srfl.setColorSchemeResources(R.color.black);
         initData();
         inflateListView(currentFiles);
+        String address = "http://" + IpUtil.getIPAddress(this) + ":" + WebService.PORT;
+        tvAddress.setText(address);
         listview.setOnItemClickListener((arg0, arg1, arg2, arg3) -> {
             if (arg2 == 0) {
                 try {
@@ -132,7 +126,6 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
-
         srfl.setOnRefreshListener(() -> new Handler().postDelayed(() -> {
             currentFiles = currentParent.listFiles();
             inflateListView(currentFiles);
@@ -260,10 +253,11 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_BACK && event.getRepeatCount() == 0) {
-            if ((System.currentTimeMillis() - mExitTime) > 2000) {
-                String address = IpUtil.getIPAddress(this) + ":" + WebService.PORT;
-                ClipBoardUtil.copy(getBaseContext(), address);
-                Toast.makeText(getBaseContext(), "浏览器访问" + address + "上传文件", Toast.LENGTH_LONG).show();
+            if ((System.currentTimeMillis() - mExitTime) > 3000) {
+//                String address = IpUtil.getIPAddress(this) + ":" + WebService.PORT;
+//                ClipBoardUtil.copy(getBaseContext(), address);
+//                Toast.makeText(getBaseContext(), "浏览器访问" + address + "上传文件", Toast.LENGTH_LONG).show();
+                Toast.makeText(getBaseContext(), "再按一次返回键退出应用", Toast.LENGTH_LONG).show();
                 mExitTime = System.currentTimeMillis();
             } else {
                 finish();

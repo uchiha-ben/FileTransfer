@@ -47,7 +47,7 @@
             </el-table-column>
         </el-table>
         <el-upload style="text-align:center;margin-top: 20px;" drag action="/upload" :show-file-list="true"
-            :on-success="uploadSuccess" :on-error="uploadError" multiple>
+            :on-success="uploadSuccess" :on-error="uploadError" :multiple="false">
             <i class="el-icon-upload"></i>
             <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
             <div class="el-upload__tip" slot="tip">支持任意格式文件上传</div>
