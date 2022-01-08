@@ -112,9 +112,9 @@ public class WebService extends Service {
         if (server != null) {
             server.stop();
         }
-        Intent intent = new Intent(this, WebService.class);
+        /*Intent intent = new Intent(this, WebService.class);
         intent.setAction(ACTION_START_WEB_SERVICE);
-        startService(intent);
+        startService(intent);*/
     }
 
     /**
@@ -123,11 +123,18 @@ public class WebService extends Service {
     private void initNotificationManager() {
         mNotifyMgr = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (Build.VERSION.SDK_INT >= 26) {
-            NotificationChannel channel = new NotificationChannel(NOTIFICATION_CHANNEL_ID, "APP_NAME", NotificationManager.IMPORTANCE_HIGH);
+            NotificationChannel channel = new NotificationChannel(NOTIFICATION_CHANNEL_ID, "FILE_TRANSFER", NotificationManager.IMPORTANCE_HIGH);
             channel.setSound(null, null);
             if (mNotifyMgr != null) {
                 mNotifyMgr.createNotificationChannel(channel);
             }
+        }
+        if (Build.VERSION.SDK_INT < 18) {
+            startForeground(KeepAliveService.SERVICE_ID, new Notification());
+        } else {
+            startForeground(KeepAliveService.SERVICE_ID, new Notification());
+            Intent intent = new Intent(this, KeepAliveService.class);
+            startService(intent);
         }
     }
 

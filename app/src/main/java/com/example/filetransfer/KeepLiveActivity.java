@@ -1,5 +1,6 @@
 package com.example.filetransfer;
 
+import android.app.Activity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Gravity;
@@ -11,7 +12,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.filetransfer.manager.KeepLiveManager;
 
-public class KeepLiveActivity extends AppCompatActivity {
+public class KeepLiveActivity extends Activity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

@@ -2,12 +2,14 @@ package com.example.filetransfer;
 
 import android.Manifest;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
+import android.provider.Settings;
 import android.view.KeyEvent;
 import android.view.WindowManager;
 import android.widget.ListView;
@@ -19,16 +21,14 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.content.FileProvider;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.example.filetransfer.manager.KeepLiveManager;
 import com.example.filetransfer.server.CustomAsyncHttpServer;
 import com.example.filetransfer.service.WebService;
-import com.example.filetransfer.utils.ClipBoardUtil;
 import com.example.filetransfer.utils.IpUtil;
 import com.example.filetransfer.utils.MyToast;
-import com.example.filetransfer.utils.OnlineDialog;
-import com.example.filetransfer.utils.Watermark;
 
 import java.io.File;
 import java.io.IOException;
@@ -49,7 +49,8 @@ import java.util.Map;
  * @date 2021/09/08
  */
 public class MainActivity extends AppCompatActivity {
-    private static final int PERMISSIONS_REQUEST_EXTERNAL_STORAGE = 454;
+    private static final int PERMISSIONS_REQUEST_CODE = 454;
+    private static final String[] PERMISSIONS = new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE};
 
     private long mExitTime;
     private TextView tvPath;
@@ -65,17 +66,21 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        // 检测版本更新
-        OnlineDialog.init(this, "http://zxm870973.gitee.io/update-center/file_transfer.json");
-
-        // 检查存储权限
-        if (!checkStoragePermission()) {
+        // 检查全部权限
+        if (!checkPermissions()) {
             ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE},
-                    PERMISSIONS_REQUEST_EXTERNAL_STORAGE);
+                    PERMISSIONS, PERMISSIONS_REQUEST_CODE);
+        }
+
+        /*// 校验悬浮窗权限
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (!Settings.canDrawOverlays(MainActivity.this)) {
+                Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + MainActivity.this.getPackageName()));
+                startActivity(intent);
+            }
         }
         // 1像素且透明Activity提升App进程优先级
-        KeepLiveManager.getInstance().registerKeepLiveReceiver(this);
+        KeepLiveManager.getInstance().registerKeepLiveReceiver(this);*/
 
         // 初始化界面
         initView();
@@ -95,8 +100,7 @@ public class MainActivity extends AppCompatActivity {
         srfl.setColorSchemeResources(R.color.black);
         initData();
         inflateListView(currentFiles);
-        String address = "http://" + IpUtil.getIPAddress(this) + ":" + WebService.PORT;
-        tvAddress.setText(address);
+        tvAddress.setText("http://" + IpUtil.getIPAddress(this) + ":" + WebService.PORT);
         listview.setOnItemClickListener((arg0, arg1, arg2, arg3) -> {
             if (arg2 == 0) {
                 try {
@@ -129,6 +133,7 @@ public class MainActivity extends AppCompatActivity {
         srfl.setOnRefreshListener(() -> new Handler().postDelayed(() -> {
             currentFiles = currentParent.listFiles();
             inflateListView(currentFiles);
+            tvAddress.setText("http://" + IpUtil.getIPAddress(this) + ":" + WebService.PORT);
             srfl.setRefreshing(false);
         }, 500));
     }
@@ -163,9 +168,7 @@ public class MainActivity extends AppCompatActivity {
             sendIntent.setAction(Intent.ACTION_SEND);
             sendIntent.putExtra(Intent.EXTRA_STREAM, Uri.fromFile(file));
             sendIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            sendIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            String fileName = file.getName();
-            sendIntent.setType(CustomAsyncHttpServer.getContentType(fileName));
+            sendIntent.setType("application/octet-stream");
             startActivity(Intent.createChooser(sendIntent, "分享文件"));
         } else {
             Toast.makeText(this, "分享文件不存在", Toast.LENGTH_SHORT).show();
@@ -211,36 +214,16 @@ public class MainActivity extends AppCompatActivity {
      *
      * @return
      */
-    private boolean checkStoragePermission() {
+    private boolean checkPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (ContextCompat.checkSelfPermission(getBaseContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /**
-     * 动态权限回调
-     *
-     * @param requestCode
-     * @param permissions
-     * @param grantResults
-     */
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        switch (requestCode) {
-            case PERMISSIONS_REQUEST_EXTERNAL_STORAGE: {
-                if (grantResults.length > 0
-                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    Toast.makeText(this, "存储权限授权成功", Toast.LENGTH_LONG).show();
-                } else {
-                    Toast.makeText(this, "存储权限授权失败", Toast.LENGTH_LONG).show();
+            for (String permission : PERMISSIONS) {
+                if (ContextCompat.checkSelfPermission(getBaseContext(), permission)
+                        != PackageManager.PERMISSION_GRANTED) {
+                    return false;
                 }
             }
         }
+        return true;
     }
 
     @Override
@@ -254,9 +237,6 @@ public class MainActivity extends AppCompatActivity {
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_BACK && event.getRepeatCount() == 0) {
             if ((System.currentTimeMillis() - mExitTime) > 3000) {
-//                String address = IpUtil.getIPAddress(this) + ":" + WebService.PORT;
-//                ClipBoardUtil.copy(getBaseContext(), address);
-//                Toast.makeText(getBaseContext(), "浏览器访问" + address + "上传文件", Toast.LENGTH_LONG).show();
                 Toast.makeText(getBaseContext(), "再按一次返回键退出应用", Toast.LENGTH_LONG).show();
                 mExitTime = System.currentTimeMillis();
             } else {
