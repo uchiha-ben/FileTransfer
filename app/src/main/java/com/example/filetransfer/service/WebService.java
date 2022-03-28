@@ -54,11 +54,10 @@ import java.util.concurrent.atomic.AtomicReference;
  * @date 2021/09/08
  */
 public class WebService extends Service {
+    public static final Integer SERVICE_ID = 0X11;
     public static final Integer PORT = 8080;
     public static final String FILE_PATH = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS).getAbsolutePath();
     public static final File mFile = new File(FILE_PATH, "upload");
-    private static final String ACTION_START_WEB_SERVICE = "START_WEB_SERVICE";
-    private static final String ACTION_STOP_WEB_SERVICE = "STOP_WEB_SERVICE";
     private static final String NOTIFICATION_CHANNEL_ID = "notification_id";
 
     private CustomAsyncHttpServer server = new CustomAsyncHttpServer();
@@ -72,20 +71,9 @@ public class WebService extends Service {
      */
     public static void start(Context context) {
         Intent intent = new Intent(context, WebService.class);
-        intent.setAction(ACTION_START_WEB_SERVICE);
         context.startService(intent);
     }
 
-    /**
-     * 停止服务
-     *
-     * @param context
-     */
-    public static void stop(Context context) {
-        Intent intent = new Intent(context, WebService.class);
-        intent.setAction(ACTION_STOP_WEB_SERVICE);
-        context.startService(intent);
-    }
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -94,15 +82,16 @@ public class WebService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent != null) {
-            String action = intent.getAction();
-            if (ACTION_START_WEB_SERVICE.equals(action)) {
-                initNotificationManager();
-                startServer();
-            } else if (ACTION_STOP_WEB_SERVICE.equals(action)) {
-                stopSelf();
-            }
+        if (Build.VERSION.SDK_INT < 18) {
+            startForeground(WebService.SERVICE_ID, new Notification());
+        } else {
+            Intent innerIntent = new Intent(this, KeepAliveService.class);
+            startService(innerIntent);
+            startForeground(WebService.SERVICE_ID, new Notification());
         }
+
+        initNotificationManager();
+        startServer();
         return super.onStartCommand(intent, flags, startId);
     }
 
@@ -112,9 +101,6 @@ public class WebService extends Service {
         if (server != null) {
             server.stop();
         }
-        /*Intent intent = new Intent(this, WebService.class);
-        intent.setAction(ACTION_START_WEB_SERVICE);
-        startService(intent);*/
     }
 
     /**
@@ -128,13 +114,6 @@ public class WebService extends Service {
             if (mNotifyMgr != null) {
                 mNotifyMgr.createNotificationChannel(channel);
             }
-        }
-        if (Build.VERSION.SDK_INT < 18) {
-            startForeground(KeepAliveService.SERVICE_ID, new Notification());
-        } else {
-            startForeground(KeepAliveService.SERVICE_ID, new Notification());
-            Intent intent = new Intent(this, KeepAliveService.class);
-            startService(intent);
         }
     }
 

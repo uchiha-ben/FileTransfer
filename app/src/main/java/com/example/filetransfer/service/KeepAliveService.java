@@ -9,8 +9,6 @@ import androidx.annotation.Nullable;
 
 
 public class KeepAliveService extends Service {
-    public static final int SERVICE_ID = 0X11;
-
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
@@ -19,9 +17,9 @@ public class KeepAliveService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        startForeground(KeepAliveService.SERVICE_ID, new Notification());
-        stopForeground(true);
+        startForeground(WebService.SERVICE_ID, new Notification());
         stopSelf();
+        stopForeground(true);
         return super.onStartCommand(intent, flags, startId);
     }
 }
