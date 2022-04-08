@@ -2,14 +2,12 @@ package com.example.filetransfer;
 
 import android.Manifest;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
-import android.provider.Settings;
 import android.view.KeyEvent;
 import android.view.WindowManager;
 import android.widget.ListView;
@@ -17,15 +15,12 @@ import android.widget.SimpleAdapter;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import androidx.core.content.FileProvider;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.example.filetransfer.manager.KeepLiveManager;
-import com.example.filetransfer.server.CustomAsyncHttpServer;
 import com.example.filetransfer.service.WebService;
 import com.example.filetransfer.utils.IpUtil;
 import com.example.filetransfer.utils.MyToast;
@@ -101,6 +96,11 @@ public class MainActivity extends AppCompatActivity {
         initData();
         inflateListView(currentFiles);
         tvAddress.setText("http://" + IpUtil.getIPAddress(this) + ":" + WebService.PORT);
+        tvAddress.setOnClickListener(v -> {
+            Uri uri = Uri.parse(tvAddress.getText().toString());
+            Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+            startActivity(intent);
+        });
         listview.setOnItemClickListener((arg0, arg1, arg2, arg3) -> {
             if (arg2 == 0) {
                 try {

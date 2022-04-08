@@ -29,20 +29,19 @@
         <el-table :data="tableData" stripe style="width: 100%">
             <el-table-column prop="name" label="文件名" :show-overflow-tooltip="true">
             </el-table-column>
-            <!--<el-table-column prop="size" label="文件大小">
-            </el-table-column>-->
             <el-table-column prop="path" label="路径" :show-overflow-tooltip="true">
             </el-table-column>
-            <!--<el-table-column prop="lastModifiedTime" label="更新时间">
-            </el-table-column>-->
             <el-table-column label="操作">
                 <template slot-scope="{row,$index}">
                     <el-button size="mini" type="primary" style="margin-top: 5px !important;">
                         <a :href="'/file/'+row.name">下载</a>
                     </el-button>
-                    <el-button style="margin-left: 0px !important; margin-top: 5px !important;" size="mini" type="danger" @click="handleDelete(row.name)">
-                        删除
-                    </el-button>
+                    <el-popconfirm icon="el-icon-info" title="是否删除该文件, 是否继续?" @confirm="handleDelete(row.name)">
+                        <el-button slot="reference" style="margin-left: 0px !important; margin-top: 5px !important;"
+                            size="mini" type="danger">
+                            删除
+                        </el-button>
+                    </el-popconfirm>
                 </template>
             </el-table-column>
         </el-table>
@@ -71,7 +70,6 @@
             fetchFileList: function () {
                 axios.get('/list').then(res => {
                     let result = res.data
-                    console.log(result)
                     this.tableData = result.data
                 })
             },
@@ -95,23 +93,12 @@
 
             },
             handleDelete(fileName) {
-                this.$confirm('是否删除该文件, 是否继续?', '提示', {
-                    confirmButtonText: '确定',
-                    cancelButtonText: '取消',
-                    type: 'warning'
-                }).then(() => {
-                    return axios.get('/delete/' + fileName)
-                }).then((response) => {
+                axios.get('/delete/' + fileName).then(() => {
                     this.$message({
                         type: 'success',
                         message: '删除成功!'
                     })
                     this.fetchFileList()
-                }).catch(() => {
-                    this.$message({
-                        type: 'info',
-                        message: '已取消删除'
-                    })
                 })
             }
         },
