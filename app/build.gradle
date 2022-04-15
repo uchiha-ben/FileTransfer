@@ -8,7 +8,7 @@ android {
 
     defaultConfig {
         applicationId "com.example.filetransfer"
-        minSdkVersion 21
+        minSdkVersion 19
         //noinspection ExpiredTargetSdkVersion
         targetSdkVersion 23
         versionCode 1

@@ -22,6 +22,7 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import com.example.filetransfer.manager.KeepLiveManager;
 import com.example.filetransfer.service.WebService;
+import com.example.filetransfer.utils.ClipBoardUtil;
 import com.example.filetransfer.utils.IpUtil;
 import com.example.filetransfer.utils.MyToast;
 
@@ -97,8 +98,9 @@ public class MainActivity extends AppCompatActivity {
         inflateListView(currentFiles);
         tvAddress.setText("http://" + IpUtil.getIPAddress(this) + ":" + WebService.PORT);
         tvAddress.setOnClickListener(v -> {
-            Uri uri = Uri.parse(tvAddress.getText().toString());
-            Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+            String url = tvAddress.getText().toString();
+            ClipBoardUtil.copy(this, url);
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
             startActivity(intent);
         });
         listview.setOnItemClickListener((arg0, arg1, arg2, arg3) -> {
@@ -118,8 +120,8 @@ public class MainActivity extends AppCompatActivity {
                 arg2 = arg2 - 1;
                 if (currentFiles[arg2].isDirectory()) {
                     File[] mfiles = currentFiles[arg2].listFiles();
-                    if (mfiles == null || mfiles.length == 0) {
-                        MyToast.makeText(MainActivity.this, "当前路径不可访问或该路径下没有文件");
+                    if (mfiles == null) {
+                        MyToast.makeText(MainActivity.this, "当前路径不可访问");
                     } else {
                         currentParent = currentFiles[arg2];
                         currentFiles = mfiles;
