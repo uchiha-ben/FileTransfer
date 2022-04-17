@@ -26,27 +26,31 @@
 
 <body>
     <div id="app">
-        <el-table :data="tableData" stripe style="width: 100%">
-            <el-table-column prop="name" label="文件名" :show-overflow-tooltip="true">
+        <el-table :data="tableData" stripe :show-header="false">
+            <el-table-column label="文件名" :show-overflow-tooltip="true">
+                <template scope="scope">
+                    <div @click='!scope.row.file && fetchFileList(scope.row.folder)'>
+                        <i :class="scope.row.file ? 'el-icon-document':'el-icon-folder'"> {{ scope.row.name }}</i>
+                    </div>
+                </template>
             </el-table-column>
-            <el-table-column prop="path" label="路径" :show-overflow-tooltip="true">
+            <!-- <el-table-column label="大小" prop="size" :show-overflow-tooltip="true"> -->
             </el-table-column>
             <el-table-column label="操作">
-                <template slot-scope="{row,$index}">
-                    <el-button size="mini" type="primary" style="margin-top: 5px !important;">
-                        <a :href="'/file/'+row.name">下载</a>
+                <template slot-scope="{row,$index}" v-if="row.file">
+                    <el-button size="mini" style="margin-top: 5px !important;" icon="el-icon-download"
+                        @click="handleDownload(row.path)">
                     </el-button>
-                    <el-popconfirm icon="el-icon-info" title="是否删除该文件, 是否继续?" @confirm="handleDelete(row.name)">
+                    <el-popconfirm icon="el-icon-info" title="是否删除该文件, 是否继续?" @confirm="handleDelete(row.path)">
                         <el-button slot="reference" style="margin-left: 0px !important; margin-top: 5px !important;"
-                            size="mini" type="danger">
-                            删除
+                            size="mini" icon="el-icon-delete">
                         </el-button>
                     </el-popconfirm>
                 </template>
             </el-table-column>
         </el-table>
-        <el-upload style="text-align:center;margin-top: 20px;" drag action="/upload" :show-file-list="true"
-            :on-success="uploadSuccess" :on-error="uploadError" :multiple="false">
+        <el-upload style="text-align:center;margin-top: 20px;" drag action="/upload" :data={path:tableData[0].path}
+            :show-file-list="true" :on-success="uploadSuccess" :on-error="uploadError" :multiple="false">
             <i class="el-icon-upload"></i>
             <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
             <div class="el-upload__tip" slot="tip">支持任意格式文件上传</div>
@@ -63,14 +67,15 @@
 <script>
     var app = new Vue({
         el: '#app',
-        data: {
+        data: {            
             tableData: []
         },
         methods: {
-            fetchFileList: function () {
-                axios.get('/list').then(res => {
-                    let result = res.data
-                    this.tableData = result.data
+            fetchFileList: function (path) {
+                axios.get('/list?path=' + path).then(res => {
+                    if (res.data.code == 200) {
+                        this.tableData = res.data.data
+                    } 
                 })
             },
             uploadSuccess: function (response, file, fileList) {
@@ -79,7 +84,7 @@
                     message: '上传成功',
                     showClose: true,
                 })
-                this.fetchFileList();
+                this.fetchFileList(this.tableData[0].path);
             },
             uploadError: function (err, file, fileList) {
                 this.$message({
@@ -87,19 +92,21 @@
                     message: '上传失败',
                     showClose: true,
                 })
-                this.fetchFileList();
+                this.fetchFileList(this.tableData[0].path);
             },
-            handleUpdate(row) {
-
-            },
-            handleDelete(fileName) {
-                axios.get('/delete/' + fileName).then(() => {
-                    this.$message({
-                        type: 'success',
-                        message: '删除成功!'
-                    })
-                    this.fetchFileList()
+            handleDelete(path) {
+                axios.get('/delete?path=' + path).then(res => {
+                    if (res.data.code == 200) {
+                        this.$message({
+                            type: 'success',
+                            message: '删除成功!'
+                        })
+                        this.fetchFileList(this.tableData[0].path)
+                    } 
                 })
+            },
+            handleDownload(path) {
+                window.open('/file?path=' + path)
             }
         },
         watch: {
@@ -110,7 +117,7 @@
         },
         computed: {},
         created() {
-            this.fetchFileList()
+            this.fetchFileList('')
         }
     })
 </script>

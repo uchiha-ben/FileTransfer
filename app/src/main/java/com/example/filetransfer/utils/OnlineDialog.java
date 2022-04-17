@@ -17,7 +17,11 @@ import okhttp3.Request;
 import okhttp3.Response;
 
 /**
- * 新版更新弹窗
+ * ConvertUtil
+ *
+ * @author uchiha.ben
+ * @version 1.0
+ * @date 2021/09/08
  */
 public class OnlineDialog {
     public static final OkHttpClient okHttpClient = new OkHttpClient();

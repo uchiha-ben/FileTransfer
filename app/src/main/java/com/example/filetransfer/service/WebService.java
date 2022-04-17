@@ -8,28 +8,25 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.BitmapFactory;
-import android.os.Binder;
 import android.os.Build;
-import android.os.Bundle;
 import android.os.Environment;
 import android.os.IBinder;
-import android.util.Log;
+import android.text.TextUtils;
 
-import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
 import com.alibaba.fastjson.JSON;
 import com.example.filetransfer.MainActivity;
 import com.example.filetransfer.R;
 import com.example.filetransfer.domain.ApiResponse;
+import com.example.filetransfer.domain.DefaultConfig;
 import com.example.filetransfer.server.CustomAsyncHttpServer;
-import com.example.filetransfer.utils.MyToast;
 import com.example.filetransfer.vo.FileVo;
 import com.koushikdutta.async.ByteBufferList;
 import com.koushikdutta.async.DataEmitter;
 import com.koushikdutta.async.Util;
 import com.koushikdutta.async.http.body.MultipartFormDataBody;
-import com.koushikdutta.async.http.body.Part;
+import com.koushikdutta.async.util.StreamUtility;
 
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -37,14 +34,12 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
-import java.text.SimpleDateFormat;
+import java.net.URLEncoder;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * WebService
@@ -55,9 +50,6 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class WebService extends Service {
     public static final Integer SERVICE_ID = 0X11;
-    public static final Integer PORT = 8080;
-    public static final String FILE_PATH = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS).getAbsolutePath();
-    public static final File mFile = new File(FILE_PATH, "upload");
     private static final String NOTIFICATION_CHANNEL_ID = "notification_id";
 
     private CustomAsyncHttpServer server = new CustomAsyncHttpServer();
@@ -158,13 +150,18 @@ public class WebService extends Service {
     private void startServer() {
         // 处理文件上传
         server.post("/upload", (request, response) -> {
-            if (!mFile.exists() || !mFile.isDirectory()) {
-                mFile.mkdirs();
-            }
             MultipartFormDataBody mBody = request.getBody();
             mBody.setMultipartCallback(part -> {
-                if (part.isFile()) {
-                    fileUploadHolder.file = new File(mFile.getAbsolutePath(), part.getFilename());
+                if (!part.isFile()) {
+                    if (mBody.getDataCallback() == null) {
+                        mBody.setDataCallback((DataEmitter emitter, ByteBufferList bb) -> {
+                            String path = readURLStr(new String(bb.getAllByteArray()));
+                            fileUploadHolder.path = path;
+                            bb.recycle();
+                        });
+                    }
+                } else {
+                    fileUploadHolder.file = new File(fileUploadHolder.path, part.getFilename());
                     try {
                         fileUploadHolder.outputStream = new BufferedOutputStream(new FileOutputStream(fileUploadHolder.file));
                         mBody.setDataCallback((emitter, bb) -> {
@@ -198,68 +195,90 @@ public class WebService extends Service {
         });
 
         // 处理文件下载
-        server.get("/file/.*", (request, response) -> {
+        server.get("/file", (request, response) -> {
+            String path = readURLStr(request.get("path"));
+            File file = new File(path);
+            if (!file.isFile()) {
+                response.code(404);
+                response.end();
+                return;
+            }
             try {
-                String fileName = request.getUrl().replaceAll("/file/", "");
-                fileName = URLDecoder.decode(fileName, "UTF-8");
-                File file = new File(mFile, fileName);
-                if (!file.isFile()) {
-                    response.code(404);
-                    response.end();
-                    return;
-                }
-                try {
-                    FileInputStream is = new FileInputStream(file);
-                    response.getHeaders().set("Content-Length", String.valueOf(is.available()));
-                    response.getHeaders().add("Content-Type", server.getContentType(file.getPath()));
-                    response.code(200);
-                    Util.pump(is, is.available(), response, ex -> response.end());
-                } catch (IOException ex) {
-                    response.code(404);
-                    response.end();
-                }
-            } catch (UnsupportedEncodingException e) {
-                e.printStackTrace();
+                FileInputStream is = new FileInputStream(file);
+                response.code(200);
+                response.getHeaders().add("Content-Type", server.getContentType(path));
+                response.getHeaders().add("content-disposition", "attachment;filename=" + URLEncoder.encode(file.getName(), "UTF-8"));
+                Util.pump(is, is.available(), response,
+                        ex -> {
+                            StreamUtility.closeQuietly(is);
+                            response.end();
+                        });
+            } catch (IOException ex) {
+                response.code(404);
+                response.end();
             }
         });
 
         // 处理文件列表
         server.get("/list", (request, response) -> {
-            ArrayList<FileVo> files = new ArrayList<FileVo>();
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-            if (mFile.listFiles() != null) {
-                for (File f : mFile.listFiles()) {
-                    if (f.isFile() && !f.getName().endsWith(".hwbk")) {
-                        FileVo fileVo = new FileVo();
-                        fileVo.setName(f.getName());
-                        fileVo.setPath(f.getPath());
-                        fileVo.setLastModified(f.lastModified());
-                        fileVo.setLastModifiedTime(sdf.format(new Date(f.lastModified())));
-                        files.add(fileVo);
+            String path = readURLStr(TextUtils.isEmpty(request.get("path")) ? DefaultConfig.getInstance().getDefaultFolderPath() : request.get("path"));
+            File mFile = new File(path);
+            if (mFile.isDirectory() && !mFile.getAbsolutePath().equals(
+                    Environment.getExternalStorageDirectory().getParentFile()
+                            .getAbsolutePath()) && (mFile.getAbsolutePath().equals(DefaultConfig.getInstance().getDefaultFolderPath()) || DefaultConfig.getInstance().getPublicMode())) {
+                ArrayList<FileVo> files = new ArrayList<FileVo>();
+                FileVo root = new FileVo();
+                root.setName("../");
+                root.setFile(false);
+                root.setPath(mFile.getAbsolutePath());
+                root.setFolder(mFile.getParent());
+                root.setLastModified(Long.MAX_VALUE);
+                files.add(root);
+                if (mFile.listFiles() != null) {
+                    for (File f : mFile.listFiles()) {
+                        if (!f.getName().endsWith(".hwbk")) {
+                            FileVo fileVo = new FileVo();
+                            fileVo.setName(f.getName());
+                            fileVo.setPath(f.getAbsolutePath());
+                            if (!f.isDirectory()) {
+                                fileVo.setFolder(f.getParent());
+                                long fileLen = f.length();
+                                DecimalFormat df = new DecimalFormat("0.00");
+                                if (fileLen > 1024 * 1024) {
+                                    fileVo.setSize(df.format(fileLen * 1f / 1024 / 1024) + "MB");
+                                } else if (fileLen > 1024) {
+                                    fileVo.setSize(df.format(fileLen * 1f / 1024) + "KB");
+                                } else {
+                                    fileVo.setSize(df.format(fileLen) + "B");
+                                }
+                            } else {
+                                fileVo.setFolder(f.getAbsolutePath());
+                            }
+                            fileVo.setLastModified(f.lastModified());
+                            fileVo.setFile(f.isFile());
+                            files.add(fileVo);
+                        }
                     }
                 }
+                Collections.sort(files, (lhs, rhs) -> lhs.getLastModified() - rhs.getLastModified() > 0 ? 1 : 0);
+                response.send("application/json", JSON.toJSONString(ApiResponse.success().data(files)));
+            } else {
+                response.send("application/json", JSON.toJSONString(ApiResponse.error().message("目录不存在或没有权限")));
             }
-            Collections.sort(files, (lhs, rhs) -> lhs.getLastModified() - rhs.getLastModified() > 0 ? 1 : 0);
-            response.send("application/json", JSON.toJSONString(ApiResponse.success().data(files)));
         });
 
         // 处理文件删除
-        server.get("/delete/.*", (request, response) -> {
-            try {
-                String fileName = request.getUrl().replaceAll("/delete/", "");
-                fileName = URLDecoder.decode(fileName, "UTF-8");
-                File file = new File(mFile, fileName);
-                if (!file.isFile()) {
-                    response.code(404);
-                    response.end();
-                    return;
-                }
-                file.delete();
-                response.send("application/json", JSON.toJSONString(ApiResponse.success()));
-                doNotifyActivity(file);
-            } catch (UnsupportedEncodingException e) {
-                e.printStackTrace();
+        server.get("/delete", (request, response) -> {
+            String path = readURLStr(request.get("path"));
+            File file = new File(path);
+            if (!file.isFile()) {
+                response.code(404);
+                response.end();
+                return;
             }
+            file.delete();
+            response.send("application/json", JSON.toJSONString(ApiResponse.success()));
+            doNotifyActivity(file);
         });
 
         // 处理首页
@@ -269,10 +288,26 @@ public class WebService extends Service {
         server.statics(getBaseContext(), "/.*", "public");
 
         // 监听端口
-        server.listen(PORT);
+        server.listen(DefaultConfig.getInstance().getDefaultPort());
+    }
+
+    /**
+     * 解析URL中文字符
+     *
+     * @param str
+     * @return
+     */
+    private String readURLStr(String str) {
+        try {
+            return URLDecoder.decode(str, "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+        return "";
     }
 
     class FileUploadHolder {
+        private String path;
         private File file;
         private BufferedOutputStream outputStream;
     }

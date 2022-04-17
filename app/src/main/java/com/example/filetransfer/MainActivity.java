@@ -1,6 +1,8 @@
 package com.example.filetransfer;
 
 import android.Manifest;
+import android.app.Dialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -8,18 +10,26 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
+import android.text.TextUtils;
 import android.view.KeyEvent;
+import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.SimpleAdapter;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import com.example.filetransfer.domain.DefaultConfig;
 import com.example.filetransfer.manager.KeepLiveManager;
 import com.example.filetransfer.service.WebService;
 import com.example.filetransfer.utils.ClipBoardUtil;
@@ -27,7 +37,7 @@ import com.example.filetransfer.utils.IpUtil;
 import com.example.filetransfer.utils.MyToast;
 
 import java.io.File;
-import java.io.IOException;
+import java.lang.reflect.Field;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -36,6 +46,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * MainActivity
@@ -55,6 +66,9 @@ public class MainActivity extends AppCompatActivity {
     private File currentParent;
     private File[] currentFiles;
     private SwipeRefreshLayout srfl;
+    private ImageView ivCreateFolder;
+    private ImageView ivDefaultFolder;
+    private ImageView ivBrowser;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -93,58 +107,113 @@ public class MainActivity extends AppCompatActivity {
         tvAddress = findViewById(R.id.tvAddress);
         listview = findViewById(R.id.listview);
         srfl = findViewById(R.id.srfl);
+        ivCreateFolder = findViewById(R.id.ivCreateFolder);
+        ivDefaultFolder = findViewById(R.id.ivDefaultFolder);
+        ivBrowser = findViewById(R.id.ivBrowser);
+
+        initFolderData();
+
         srfl.setColorSchemeResources(R.color.black);
-        initData();
-        inflateListView(currentFiles);
-        tvAddress.setText("http://" + IpUtil.getIPAddress(this) + ":" + WebService.PORT);
+        tvAddress.setText(getWebUrl());
         tvAddress.setOnClickListener(v -> {
-            String url = tvAddress.getText().toString();
-            ClipBoardUtil.copy(this, url);
-            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-            startActivity(intent);
+            openWithBrowser();
         });
         listview.setOnItemClickListener((arg0, arg1, arg2, arg3) -> {
             if (arg2 == 0) {
-                try {
-                    if (!currentParent.getCanonicalFile().equals(
-                            Environment.getExternalStorageDirectory()
-                                    .getAbsoluteFile())) {
-                        currentParent = currentParent.getParentFile();
+                if (currentParent.getParentFile().isDirectory() && !currentParent.getAbsolutePath().equals(
+                        Environment.getExternalStorageDirectory()
+                                .getAbsolutePath())) {
+                    currentParent = currentParent.getParentFile();
+                    if (currentParent.listFiles() == null) {
+                        currentFiles = new File[]{};
+                    } else {
                         currentFiles = currentParent.listFiles();
-                        inflateListView(currentFiles);
                     }
-                } catch (IOException e) {
-                    e.printStackTrace();
+                    inflateListView(currentFiles);
                 }
             } else {
                 arg2 = arg2 - 1;
                 if (currentFiles[arg2].isDirectory()) {
                     File[] mfiles = currentFiles[arg2].listFiles();
                     if (mfiles == null) {
-                        MyToast.makeText(MainActivity.this, "当前路径不可访问");
-                    } else {
-                        currentParent = currentFiles[arg2];
-                        currentFiles = mfiles;
-                        inflateListView(currentFiles);
+                        mfiles = new File[]{};
                     }
+                    currentParent = currentFiles[arg2];
+                    currentFiles = mfiles;
+                    inflateListView(currentFiles);
                 } else {
                     shareFile(currentFiles[arg2]);
                 }
             }
         });
         srfl.setOnRefreshListener(() -> new Handler().postDelayed(() -> {
-            currentFiles = currentParent.listFiles();
-            inflateListView(currentFiles);
-            tvAddress.setText("http://" + IpUtil.getIPAddress(this) + ":" + WebService.PORT);
+            refreshFolderData();
             srfl.setRefreshing(false);
         }, 500));
+        ivCreateFolder.setOnClickListener(v -> {
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            builder.setTitle("新建目录");
+            final EditText editText = new EditText(this);
+            editText.setSingleLine();
+            builder.setView(editText);
+            builder.setPositiveButton("确定", (dialog, which) -> {
+                try {
+                    Field mShowing = Dialog.class.getDeclaredField("mShowing");
+                    mShowing.setAccessible(true);
+                    String folderName = editText.getText().toString();
+                    if (!TextUtils.isEmpty(folderName)) {
+                        File folderPath = new File(currentParent.getAbsolutePath(), folderName);
+                        folderPath.mkdirs();
+                        refreshFolderData();
+                        MyToast.makeText(MainActivity.this, "新建成功");
+                        mShowing.set(dialog, true);
+                    } else {
+                        MyToast.makeText(MainActivity.this, "目录不能为空");
+                        mShowing.set(dialog, false);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+            builder.setNegativeButton("取消", (dialog, which) -> {
+                try {
+                    Field mShowing = Dialog.class.getDeclaredField("mShowing");
+                    mShowing.setAccessible(true);
+                    mShowing.set(dialog, true);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+            builder.setCancelable(false);
+            builder.show();
+        });
+        ivDefaultFolder.setOnClickListener(v -> {
+            DefaultConfig defaultConfig = DefaultConfig.getInstance();
+            final String[] items = {"私有模式", "开放模式"};
+            AlertDialog.Builder singleChoiceDialog = new AlertDialog.Builder(MainActivity.this);
+            singleChoiceDialog.setIcon(R.drawable.icon);
+            singleChoiceDialog.setTitle("默认路径:" + currentParent.getAbsolutePath());
+            AtomicReference<Boolean> atomicReference = new AtomicReference(Boolean.FALSE);
+            singleChoiceDialog.setSingleChoiceItems(items, 0, (dialog, which) -> atomicReference.set(which == 0 ? Boolean.FALSE : Boolean.TRUE));
+            singleChoiceDialog.setPositiveButton("确定", (dialog, which) -> {
+                defaultConfig.setDefaultFolderPath(currentParent.getAbsolutePath());
+                defaultConfig.setPublicMode(atomicReference.get());
+                MyToast.makeText(this, "设置成功");
+            });
+            singleChoiceDialog.setNegativeButton("取消", null);
+            singleChoiceDialog.setCancelable(false);
+            singleChoiceDialog.show();
+        });
+        ivBrowser.setOnClickListener(v -> {
+            openWithBrowser();
+        });
     }
 
     /**
-     * 初始化默认值
+     * 初始化默认文件夹内容展示
      */
-    private void initData() {
-        File root = new File(WebService.FILE_PATH, "upload");
+    private void initFolderData() {
+        File root = new File(DefaultConfig.getInstance().getDefaultFolderPath());
         if (!root.exists() || !root.isDirectory()) {
             root.mkdirs();
         }
@@ -156,8 +225,17 @@ public class MainActivity extends AppCompatActivity {
         }
         Collections.sort(tmpList, (lhs, rhs) -> lhs.lastModified() - rhs.lastModified() > 0 ? 1 : 0);
         currentFiles = tmpList.toArray(new File[tmpList.size()]);
+        inflateListView(currentFiles);
     }
 
+    /**
+     * 刷新当前文件夹内容展示
+     */
+    private void refreshFolderData() {
+        currentFiles = currentParent.listFiles();
+        inflateListView(currentFiles);
+        tvAddress.setText(getWebUrl());
+    }
 
     /**
      * 文件分享
@@ -204,11 +282,7 @@ public class MainActivity extends AppCompatActivity {
                 R.layout.item, new String[]{"icon", "rootName", "filename", "lastModified"}, new int[]{
                 R.id.icon, R.id.root_name, R.id.file_name, R.id.last_modified});
         listview.setAdapter(adapter);
-        try {
-            tvPath.setText(currentParent.getCanonicalPath());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        tvPath.setText(currentParent.getAbsolutePath());
     }
 
     /**
@@ -226,6 +300,25 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         return true;
+    }
+
+    /**
+     * 浏览器打开WEB端
+     */
+    private void openWithBrowser() {
+        String url = tvAddress.getText().toString();
+        ClipBoardUtil.copy(this, url);
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+        startActivity(intent);
+    }
+
+    /**
+     * 获取WEB端链接地址
+     *
+     * @return
+     */
+    private String getWebUrl() {
+        return "http://" + IpUtil.getIPAddress(this) + ":" + DefaultConfig.getInstance().getDefaultPort();
     }
 
     @Override
@@ -253,7 +346,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        initData();
-        inflateListView(currentFiles);
+        refreshFolderData();
     }
 }

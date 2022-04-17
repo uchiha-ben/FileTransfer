@@ -23,6 +23,13 @@ import java.io.UnsupportedEncodingException;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
+/**
+ * ConvertUtil
+ *
+ * @author uchiha.ben
+ * @version 1.0
+ * @date 2021/09/08
+ */
 public class ConvertUtil {
     public static final int BYTE = 1;
     public static final int KB = 1024;

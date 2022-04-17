@@ -37,7 +37,8 @@
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/srfl"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="0dp"
+        android:layout_weight="1">
 
         <ListView
             android:id="@+id/listview"
@@ -46,4 +47,50 @@
             android:padding="8dp" />
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
+
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:background="@drawable/background_with_shadow"
+        android:layout_height="45dp">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center">
+
+            <ImageView
+                android:id="@+id/ivCreateFolder"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/create_folder" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center">
+
+            <ImageView
+                android:id="@+id/ivDefaultFolder"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/default_folder" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center">
+
+            <ImageView
+                android:id="@+id/ivBrowser"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/browser" />
+        </LinearLayout>
+    </LinearLayout>
 </LinearLayout>

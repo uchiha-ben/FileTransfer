@@ -16,7 +16,7 @@ public class FileVo {
     /**
      * 文件大小
      */
-    private Long size;
+    private String size;
 
     /**
      * 文件路径
@@ -24,14 +24,19 @@ public class FileVo {
     private String path;
 
     /**
+     * 文件夹
+     */
+    private String folder;
+
+    /**
      * 最新更新时间戳
      */
     private Long lastModified;
 
     /**
-     * 最新更新时间
+     * 是否为文件
      */
-    private String lastModifiedTime;
+    private boolean isFile;
 
     public String getName() {
         return name;
@@ -41,11 +46,11 @@ public class FileVo {
         this.name = name;
     }
 
-    public Long getSize() {
+    public String getSize() {
         return size;
     }
 
-    public void setSize(Long size) {
+    public void setSize(String size) {
         this.size = size;
     }
 
@@ -65,11 +70,19 @@ public class FileVo {
         this.lastModified = lastModified;
     }
 
-    public String getLastModifiedTime() {
-        return lastModifiedTime;
+    public boolean isFile() {
+        return isFile;
     }
 
-    public void setLastModifiedTime(String lastModifiedTime) {
-        this.lastModifiedTime = lastModifiedTime;
+    public void setFile(boolean file) {
+        isFile = file;
+    }
+
+    public String getFolder() {
+        return folder;
+    }
+
+    public void setFolder(String folder) {
+        this.folder = folder;
     }
 }
